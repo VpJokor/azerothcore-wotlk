@@ -207,7 +207,7 @@ struct boss_illidan_stormrage : public BossAI
         _canTalk = true;
         _dying = false;
         _inCutscene = false;
-        beamPosId = urand(0, MAX_EYE_BEAM_POS);
+        beamPosId = urand(0, MAX_EYE_BEAM_POS - 1);
         me->ReplaceAllUnitFlags(UNIT_FLAG_IMMUNE_TO_PC | UNIT_FLAG_IMMUNE_TO_NPC);
         me->SetDisableGravity(false);
         me->SetHover(false);
@@ -521,7 +521,10 @@ struct boss_illidan_stormrage : public BossAI
                 // Check for Phase Transition
                 scheduler.Schedule(5s, [this](TaskContext context) {
                     if (!SelectTargetFromPlayerList(150.0f))
+                    {
                         EnterEvadeMode(EVADE_REASON_NO_HOSTILES);
+                        return;
+                    }
 
                     summons.RemoveNotExisting();
                     if (!summons.HasEntry(NPC_FLAME_OF_AZZINOTH))
@@ -566,7 +569,10 @@ struct boss_illidan_stormrage : public BossAI
             case PHASE_DEMON:
             {
                 scheduler.CancelAll();
-                DoCastSelf(SPELL_SUMMON_SHADOW_DEMON, true);
+
+                ScheduleTimedEvent(30s, [&] {
+                    DoCastSelf(SPELL_SUMMON_SHADOW_DEMON, true);
+                }, 100s);
 
                 ScheduleTimedEvent(1s, 2500ms, [&] {
                     DoCastVictim(SPELL_SHADOW_BLAST);
@@ -690,11 +696,11 @@ private:
 
     void CycleBeamPos(uint8 &beamPosId)
     {
-        uint8 _incumbentBeamPos = urand(0, MAX_EYE_BEAM_POS);
-        if (_incumbentBeamPos == beamPosId)
-            CycleBeamPos(beamPosId);
-        else
-            beamPosId = _incumbentBeamPos;
+        uint8 newPos;
+        do {
+            newPos = urand(0, MAX_EYE_BEAM_POS - 1);
+        } while (newPos == beamPosId);
+        beamPosId = newPos;
     }
 };
 
@@ -1227,7 +1233,7 @@ struct npc_parasitic_shadowfiend : public ScriptedAI
 
     bool CanAIAttack(Unit const* who) const override
     {
-        return !who->HasAura(SPELL_PARASITIC_SHADOWFIEND) && !who->HasAura(SPELL_PARASITIC_SHADOWFIEND_TRIGGER);
+        return !who->HasAura(SPELL_PARASITIC_SHADOWFIEND) && !who->HasAura(SPELL_PARASITIC_SHADOWFIEND_TRIGGER) && who->IsPlayer();
     }
 
     void EnterEvadeMode(EvadeReason /*why*/) override
